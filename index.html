@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload ke Mas Baim Gallery</title>
+    <title>Upload ke Google Drive</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -28,7 +28,6 @@
             justify-content: center;
             gap: 10px;
         }
-        .header p { color: #94a3b8; margin-top: 8px; font-size: 0.95rem; }
 
         .config-section {
             background: linear-gradient(145deg, #1e293b, #263548);
@@ -271,7 +270,6 @@
         <div class="config-section">
             <h3>📁 Upload Foto</h3>
 
-            <!-- Dropdown Tahun & Bulan -->
             <div class="form-row">
                 <div class="form-group">
                     <label>Tahun</label>
@@ -283,12 +281,10 @@
                 </div>
             </div>
 
-            <!-- Preview folder -->
             <div class="folder-preview">
                 📂 Folder tujuan: <strong id="folderPath">-</strong>
             </div>
 
-            <!-- Drop zone -->
             <div class="file-drop-zone" id="dropZone">
                 <input type="file" id="fileInput" accept="image/*" multiple />
                 <div class="drop-icon">🖼️</div>
@@ -297,15 +293,12 @@
                 </div>
             </div>
 
-            <!-- Preview -->
             <div class="file-preview" id="filePreview"></div>
 
-            <!-- Upload button -->
             <button class="upload-btn" id="uploadBtn" onclick="startUpload()" disabled>
                 🚀 Upload ke Google Drive
             </button>
 
-            <!-- Progress -->
             <div class="progress-container" id="progressContainer">
                 <div class="progress-bar-bg">
                     <div class="progress-bar-fill" id="progressBar" style="width: 0%">
@@ -314,10 +307,8 @@
                 </div>
             </div>
 
-            <!-- Status -->
             <div class="status-msg" id="statusMsg"></div>
 
-            <!-- Log -->
             <div class="upload-log" id="uploadLog"></div>
         </div>
     </div>
@@ -325,7 +316,7 @@
     <script>
         // ====== KONFIGURASI ======
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzl3JPd42A6A0Q2CbEuw-S0Jrio62M3WkRn7O2UayNGUo9XjGEXO5jjr41SBNUaKTObDA/exec';
-        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+        const MAX_FILE_SIZE = 15 * 1024 * 1024; // Diperlonggar ke 15MB karena nanti dicompress otomatis
 
         // ====== INISIALISASI DROPDOWN ======
         const NAMA_BULAN = [
@@ -347,13 +338,14 @@
         const uploadLog = document.getElementById('uploadLog');
 
         let selectedFiles = [];
+        let previewUrls = []; // Untuk melacak objek URL preview agar bisa dibersihkan memori-nya
 
         // Default: tahun & bulan sekarang
         const now = new Date();
         const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth(); // 0-indexed
+        const currentMonth = now.getMonth();
 
-        // Isi dropdown tahun (5 tahun ke belakang + 1 ke depan)
+        // Isi dropdown tahun
         for (let y = currentYear - 5; y <= currentYear + 1; y++) {
             const opt = document.createElement('option');
             opt.value = y;
@@ -362,16 +354,15 @@
             tahunSelect.appendChild(opt);
         }
 
-        // Isi dropdown bulan (value = 2 digit, text = nama bulan)
+        // Isi dropdown bulan
         NAMA_BULAN.forEach((nama, idx) => {
             const opt = document.createElement('option');
-            opt.value = String(idx + 1).padStart(2, '0'); // "01", "02", ..., "12"
+            opt.value = String(idx + 1).padStart(2, '0');
             opt.textContent = nama;
             if (idx === currentMonth) opt.selected = true;
             bulanSelect.appendChild(opt);
         });
 
-        // Update preview folder setiap dropdown berubah
         function updateFolderPath() {
             folderPathEl.textContent = `${tahunSelect.value}/${bulanSelect.value}`;
         }
@@ -400,10 +391,9 @@
         function handleFiles(files) {
             const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
 
-            // Validasi ukuran
             const oversized = imageFiles.filter(f => f.size > MAX_FILE_SIZE);
             if (oversized.length > 0) {
-                showStatus(`❌ ${oversized.length} file melebihi 10MB dan dilewati.`, 'error');
+                showStatus(`❌ ${oversized.length} file melebihi 15MB dan dilewati.`, 'error');
             }
 
             const validFiles = imageFiles.filter(f => f.size <= MAX_FILE_SIZE);
@@ -411,19 +401,30 @@
             renderPreview();
         }
 
+        function clearPreviewUrls() {
+            previewUrls.forEach(url => URL.revokeObjectURL(url));
+            previewUrls = [];
+        }
+
         function renderPreview() {
+            clearPreviewUrls();
             filePreview.innerHTML = '';
+            
             selectedFiles.forEach((file, idx) => {
                 const div = document.createElement('div');
                 div.className = 'file-preview-item';
 
+                const imgUrl = URL.createObjectURL(file);
+                previewUrls.push(imgUrl); // Simpan untuk dibersihkan nanti
+
                 const img = document.createElement('img');
-                img.src = URL.createObjectURL(file);
+                img.src = imgUrl;
 
                 const btn = document.createElement('button');
                 btn.className = 'remove-btn';
                 btn.textContent = '✕';
-                btn.onclick = () => {
+                btn.onclick = (e) => {
+                    e.preventDefault();
                     selectedFiles.splice(idx, 1);
                     renderPreview();
                 };
@@ -441,13 +442,62 @@
             statusMsg.innerHTML = msg;
         }
 
+        // ====== FUNGSI KOMPRESI GAMBAR (ANTI CRASH DI HP) ======
+        function compressAndGetBase64(file) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const objectUrl = URL.createObjectURL(file);
+                
+                img.src = objectUrl;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Batasi resolusi maksimal lebar/tinggi ke 1920px (Full HD)
+                    const MAX_WIDTH = 1920;
+                    const MAX_HEIGHT = 1920;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Kompresi kualitas gambar ke 80% dalam format JPEG
+                    const base64Data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+                    
+                    // Bersihkan memori sesegera mungkin
+                    URL.revokeObjectURL(objectUrl);
+                    resolve(base64Data);
+                };
+                
+                img.onerror = (err) => {
+                    URL.revokeObjectURL(objectUrl);
+                    reject(new Error('Gagal memproses gambar'));
+                };
+            });
+        }
+
         // ====== UPLOAD KE GOOGLE DRIVE ======
         async function startUpload() {
             if (selectedFiles.length === 0) return;
 
-            const tahun = tahunSelect.value;           // "2026"
-            const bulan = bulanSelect.value;           // "06"
-            const subFolderName = `${tahun}/${bulan}`; // "2026/06"
+            const tahun = tahunSelect.value;
+            const bulan = bulanSelect.value;
+            const subFolderName = `${tahun}/${bulan}`;
 
             uploadBtn.disabled = true;
             uploadBtn.textContent = '⏳ Mengupload...';
@@ -461,7 +511,7 @@
             let successCount = 0;
             let failCount = 0;
 
-            // Buat log items
+            // Buat log antrean
             selectedFiles.forEach((file, idx) => {
                 const logItem = document.createElement('div');
                 logItem.className = 'log-item';
@@ -478,14 +528,36 @@
                 const logItem = document.getElementById(`log-${i}`);
                 const statusEl = logItem.querySelector('.status');
 
-                statusEl.textContent = '⏳ Uploading...';
+                statusEl.textContent = '⚡ Memproses...';
                 statusEl.className = 'status pending';
 
                 try {
-                    await uploadOneFile(file, subFolderName);
-                    statusEl.textContent = '✅ Selesai';
-                    statusEl.className = 'status done';
-                    successCount++;
+                    // 1. Kompresi file terlebih dahulu sebelum dikirim
+                    const compressedBase64 = await compressAndGetBase64(file);
+                    
+                    statusEl.textContent = '🚀 Mengirim...';
+                    
+                    // 2. Kirim payload hasil kompresi
+                    const payload = {
+                        fileName: file.name.replace(/\.[^/.]+$/, "") + ".jpg", // Ubah ekstensi akhir ke .jpg karena output canvas adalah JPEG
+                        fileData: compressedBase64,
+                        mimeType: "image/jpeg",
+                        subFolderName: subFolderName
+                    };
+
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json();
+
+                    if (data.result === 'success') {
+                        statusEl.textContent = '✅ Selesai';
+                        statusEl.className = 'status done';
+                        successCount++;
+                    } else {
+                        throw new Error(data.error || 'Server error');
+                    }
                 } catch (err) {
                     console.error(err);
                     statusEl.textContent = '❌ Gagal';
@@ -499,12 +571,12 @@
                 progressText.textContent = pct + '%';
             }
 
-            // Tampilkan hasil
+            // Tampilkan hasil akhir
             if (failCount === 0) {
                 showStatus(`✅ Berhasil upload <strong>${successCount}</strong> foto ke folder <strong>${subFolderName}</strong>`, 'success');
-                // Reset file input, tapi pertahankan pilihan tahun/bulan
                 selectedFiles = [];
                 fileInput.value = '';
+                clearPreviewUrls();
                 renderPreview();
             } else {
                 showStatus(`⚠️ ${successCount} berhasil, ${failCount} gagal upload ke <strong>${subFolderName}</strong>`, 'error');
@@ -512,38 +584,6 @@
 
             uploadBtn.disabled = selectedFiles.length === 0;
             uploadBtn.textContent = '🚀 Upload ke Google Drive';
-        }
-
-        // Upload 1 file ke Google Apps Script
-        function uploadOneFile(file, subFolderName) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const base64Data = e.target.result.split(',')[1];
-                    const payload = {
-                        fileName: file.name,
-                        fileData: base64Data,
-                        mimeType: file.type,
-                        subFolderName: subFolderName
-                    };
-
-                    fetch(SCRIPT_URL, {
-                        method: 'POST',
-                        body: JSON.stringify(payload)
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.result === 'success') {
-                            resolve(data);
-                        } else {
-                            reject(new Error(data.error || 'Unknown error'));
-                        }
-                    })
-                    .catch(err => reject(err));
-                };
-                reader.onerror = () => reject(new Error('Gagal membaca file'));
-                reader.readAsDataURL(file);
-            });
         }
     </script>
 </body>
