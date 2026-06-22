@@ -118,43 +118,40 @@
             font-weight: 600;
         }
 
+        /* PERBAIKAN: Gaya kontainer list pratinjau teks agar responsif di HP */
         .file-preview {
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+            flex-direction: column;
+            gap: 6px;
             margin-bottom: 14px;
             max-height: 200px;
             overflow-y: auto;
         }
         .file-preview-item {
-            width: 70px;
-            height: 70px;
-            border-radius: 8px;
-            overflow: hidden;
-            position: relative;
-            border: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #334155;
+            color: #e2e8f0;
+            font-size: 0.8rem;
+            border-radius: 6px;
+            border: 1px solid #475569;
         }
-        .file-preview-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .file-preview-item .file-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 80%;
         }
         .file-preview-item .remove-btn {
-            position: absolute;
-            top: 2px;
-            right: 2px;
-            width: 18px;
-            height: 18px;
-            background: rgba(248, 113, 113, 0.9);
-            color: white;
+            color: #f87171;
+            background: none;
             border: none;
-            border-radius: 50%;
-            font-size: 0.65rem;
+            font-weight: bold;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
+            font-size: 0.9rem;
+            padding: 0 4px;
         }
 
         .upload-btn {
@@ -316,7 +313,7 @@
     <script>
         // ====== KONFIGURASI ======
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzl3JPd42A6A0Q2CbEuw-S0Jrio62M3WkRn7O2UayNGUo9XjGEXO5jjr41SBNUaKTObDA/exec';
-        const MAX_FILE_SIZE = 15 * 1024 * 1024; // Diperlonggar ke 15MB karena nanti dicompress otomatis
+        const MAX_FILE_SIZE = 30 * 1024 * 1024; // Diperlonggar ke 30MB karena nanti dicompress otomatis di HP
 
         // ====== INISIALISASI DROPDOWN ======
         const NAMA_BULAN = [
@@ -338,7 +335,6 @@
         const uploadLog = document.getElementById('uploadLog');
 
         let selectedFiles = [];
-        let previewUrls = []; // Untuk melacak objek URL preview agar bisa dibersihkan memori-nya
 
         // Default: tahun & bulan sekarang
         const now = new Date();
@@ -393,7 +389,7 @@
 
             const oversized = imageFiles.filter(f => f.size > MAX_FILE_SIZE);
             if (oversized.length > 0) {
-                showStatus(`❌ ${oversized.length} file melebihi 15MB dan dilewati.`, 'error');
+                showStatus(`❌ ${oversized.length} file melebihi 30MB dan dilewati.`, 'error');
             }
 
             const validFiles = imageFiles.filter(f => f.size <= MAX_FILE_SIZE);
@@ -401,24 +397,17 @@
             renderPreview();
         }
 
-        function clearPreviewUrls() {
-            previewUrls.forEach(url => URL.revokeObjectURL(url));
-            previewUrls = [];
-        }
-
+        // PERBAIKAN AGRESIF: Render dalam bentuk list Teks (RAM HP dijamin 100% Adem/Aman)
         function renderPreview() {
-            clearPreviewUrls();
             filePreview.innerHTML = '';
             
             selectedFiles.forEach((file, idx) => {
                 const div = document.createElement('div');
                 div.className = 'file-preview-item';
 
-                const imgUrl = URL.createObjectURL(file);
-                previewUrls.push(imgUrl); // Simpan untuk dibersihkan nanti
-
-                const img = document.createElement('img');
-                img.src = imgUrl;
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'file-name';
+                nameSpan.textContent = `🖼️ ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
 
                 const btn = document.createElement('button');
                 btn.className = 'remove-btn';
@@ -429,7 +418,7 @@
                     renderPreview();
                 };
 
-                div.appendChild(img);
+                div.appendChild(nameSpan);
                 div.appendChild(btn);
                 filePreview.appendChild(div);
             });
@@ -442,7 +431,7 @@
             statusMsg.innerHTML = msg;
         }
 
-        // ====== FUNGSI KOMPRESI GAMBAR (ANTI CRASH DI HP) ======
+        // ====== FUNGSI KOMPRESI GAMBAR (DIPROSES BERTAHAP SAAT UPLOAD) ======
         function compressAndGetBase64(file) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
@@ -476,17 +465,17 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // Kompresi kualitas gambar ke 80% dalam format JPEG
+                    // Kompresi kualitas gambar ke 80% (JPEG)
                     const base64Data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
                     
-                    // Bersihkan memori sesegera mungkin
+                    // Bersihkan memori sesegera mungkin setelah canvas selesai membaca data
                     URL.revokeObjectURL(objectUrl);
                     resolve(base64Data);
                 };
                 
                 img.onerror = (err) => {
                     URL.revokeObjectURL(objectUrl);
-                    reject(new Error('Gagal memproses gambar'));
+                    reject(new Error('Gagal memproses/membaca data gambar HP'));
                 };
             });
         }
@@ -523,6 +512,7 @@
                 uploadLog.appendChild(logItem);
             });
 
+            // Loop upload satu per satu (Antrean Bertahap)
             for (let i = 0; i < selectedFiles.length; i++) {
                 const file = selectedFiles[i];
                 const logItem = document.getElementById(`log-${i}`);
@@ -532,14 +522,14 @@
                 statusEl.className = 'status pending';
 
                 try {
-                    // 1. Kompresi file terlebih dahulu sebelum dikirim
+                    // 1. Kompresi gambar tepat saat gilirannya tiba (tidak diproses masal di depan)
                     const compressedBase64 = await compressAndGetBase64(file);
                     
                     statusEl.textContent = '🚀 Mengirim...';
                     
-                    // 2. Kirim payload hasil kompresi
+                    // 2. Buat payload aman (kecil & ringan)
                     const payload = {
-                        fileName: file.name.replace(/\.[^/.]+$/, "") + ".jpg", // Ubah ekstensi akhir ke .jpg karena output canvas adalah JPEG
+                        fileName: file.name.replace(/\.[^/.]+$/, "") + ".jpg", // Dikunci ke .jpg karena keluaran canvas JPEG
                         fileData: compressedBase64,
                         mimeType: "image/jpeg",
                         subFolderName: subFolderName
@@ -576,7 +566,6 @@
                 showStatus(`✅ Berhasil upload <strong>${successCount}</strong> foto ke folder <strong>${subFolderName}</strong>`, 'success');
                 selectedFiles = [];
                 fileInput.value = '';
-                clearPreviewUrls();
                 renderPreview();
             } else {
                 showStatus(`⚠️ ${successCount} berhasil, ${failCount} gagal upload ke <strong>${subFolderName}</strong>`, 'error');
