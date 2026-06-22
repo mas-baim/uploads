@@ -1,160 +1,550 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Upload Gambar ke Google Drive</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f4f4f9;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 20px;
-    }
-    .container {
-      background: white;
-      padding: 2rem;
-      border-radius: 10px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-      text-align: center;
-      width: 100%;
-      max-width: 400px;
-    }
-    h2 { margin-bottom: 1.5rem; color: #333; }
-    input[type="file"], input[type="date"] {
-      margin-bottom: 1rem;
-      width: 100%;
-      padding: 8px;
-      box-sizing: border-box;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-    }
-    button {
-      background-color: #4285F4;
-      color: white;
-      border: none;
-      padding: 12px 20px;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-      width: 100%;
-      transition: background 0.3s;
-    }
-    button:hover { background-color: #3367d6; }
-    button:disabled { background-color: #ccc; cursor: not-allowed; }
-    #status {
-      margin-top: 1rem;
-      font-size: 14px;
-      word-break: break-all;
-    }
-    .success { color: green; }
-    .error { color: red; }
-    .loading { color: #4285F4; }
-    .hint { font-size: 12px; color: #666; margin-top: -0.5rem; margin-bottom: 1rem; text-align: left; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload ke Google Drive</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container { width: 100%; max-width: 600px; }
+
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 {
+            color: #e2e8f0;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .header p { color: #94a3b8; margin-top: 8px; font-size: 0.95rem; }
+
+        .config-section {
+            background: linear-gradient(145deg, #1e293b, #263548);
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .config-section h3 {
+            color: #e2e8f0;
+            font-size: 1rem;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group { margin-bottom: 14px; }
+        .form-group label {
+            display: block;
+            color: #94a3b8;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; }
+
+        select {
+            width: 100%;
+            padding: 10px 14px;
+            background: #0f172a;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 0.9rem;
+            transition: border-color 0.3s;
+            cursor: pointer;
+        }
+        select:focus { outline: none; border-color: #0ea5e9; }
+        select option { background: #0f172a; color: #e2e8f0; }
+
+        .folder-preview {
+            background: rgba(14, 165, 233, 0.08);
+            border: 1px solid rgba(14, 165, 233, 0.25);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 14px;
+            font-size: 0.85rem;
+            color: #38bdf8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .folder-preview strong { color: #e2e8f0; }
+
+        .file-drop-zone {
+            border: 2px dashed #475569;
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 14px;
+            position: relative;
+        }
+        .file-drop-zone:hover,
+        .file-drop-zone.dragover {
+            border-color: #0ea5e9;
+            background: rgba(14, 165, 233, 0.05);
+        }
+        .file-drop-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .file-drop-zone .drop-icon { font-size: 2.5rem; margin-bottom: 8px; }
+        .file-drop-zone .drop-text {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        .file-drop-zone .drop-text span {
+            color: #0ea5e9;
+            font-weight: 600;
+        }
+
+        .file-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .file-preview-item {
+            width: 70px;
+            height: 70px;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #334155;
+        }
+        .file-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .file-preview-item .remove-btn {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 18px;
+            height: 18px;
+            background: rgba(248, 113, 113, 0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 0.65rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        .upload-btn {
+            display: block;
+            width: 100%;
+            margin-top: 10px;
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
+        }
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
+        }
+        .upload-btn:active { transform: translateY(0); }
+        .upload-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress-container { margin-top: 20px; display: none; }
+        .progress-container.active { display: block; }
+        .progress-bar-bg {
+            width: 100%;
+            height: 28px;
+            background: #0f172a;
+            border-radius: 14px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #334155;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 14px;
+            background: linear-gradient(90deg, #0ea5e9, #8b5cf6);
+            transition: width 0.4s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 40px;
+        }
+        .progress-text {
+            color: #f1f5f9;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .status-msg {
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 0.9rem;
+            display: none;
+        }
+        .status-msg.active { display: block; }
+        .status-msg.success {
+            background: rgba(52, 211, 153, 0.1);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+            color: #34d399;
+        }
+        .status-msg.error {
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            color: #f87171;
+        }
+
+        .upload-log {
+            margin-top: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+        .upload-log.active { display: block; }
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 6px;
+            margin-bottom: 4px;
+            font-size: 0.8rem;
+        }
+        .log-item .name {
+            color: #e2e8f0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 70%;
+        }
+        .log-item .status { font-weight: 600; }
+        .log-item .status.done { color: #34d399; }
+        .log-item .status.fail { color: #f87171; }
+        .log-item .status.pending { color: #fbbf24; }
+    </style>
 </head>
 <body>
+    <div class="container">
+        <div class="header">
+            <h1>📸 Mas Baim Gallery Uploader</h1>
+        </div>
 
-  <div class="container">
-    <h2>Upload ke Google Drive</h2>
-    
-    <label for="dateInput" style="display:block; text-align:left; font-weight:500; margin-bottom:4px;">📅 Pilih Tanggal:</label>
-    <input type="date" id="dateInput">
-    <p class="hint">💡 Folder akan otomatis dibuat berdasarkan tahun dan bulan dari tanggal yang dipilih.</b></p>
-    
-    <input type="file" id="fileInput" accept="image/*">
-    <button id="uploadBtn" onclick="uploadFile()">Upload Gambar</button>	
-	
-    <p id="status"></p>
-  </div>
+        <div class="config-section">
+            <h3>📁 Upload Foto</h3>
 
-  <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzl3JPd42A6A0Q2CbEuw-S0Jrio62M3WkRn7O2UayNGUo9XjGEXO5jjr41SBNUaKTObDA/exec'; // Ganti dengan URL Web App Anda
+            <!-- Dropdown Tahun & Bulan -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tahun</label>
+                    <select id="tahun"></select>
+                </div>
+                <div class="form-group">
+                    <label>Bulan</label>
+                    <select id="bulan"></select>
+                </div>
+            </div>
 
-    // Daftar nama bulan dalam Bahasa Indonesia
-    const NAMA_BULAN = [
-      '01', '02', '03', '04', '05', '06',
-      '07', '08', '09', '10', '11', '12'
-    ];
+            <!-- Preview folder -->
+            <div class="folder-preview">
+                📂 Folder tujuan: <strong id="folderPath">-</strong>
+            </div>
 
-    function uploadFile() {
-      const fileInput = document.getElementById('fileInput');
-      const dateInput = document.getElementById('dateInput');
-      const status = document.getElementById('status');
-      const uploadBtn = document.getElementById('uploadBtn');
+            <!-- Drop zone -->
+            <div class="file-drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*" multiple />
+                <div class="drop-icon">🖼️</div>
+                <div class="drop-text">
+                    Drag & drop foto di sini atau <span>pilih file</span>
+                </div>
+            </div>
 
-      // Validasi tanggal
-      if (!dateInput.value) {
-        status.innerHTML = '<span class="error">Silakan pilih tanggal terlebih dahulu!</span>';
-        return;
-      }
+            <!-- Preview -->
+            <div class="file-preview" id="filePreview"></div>
 
-      // Validasi file
-      if (fileInput.files.length === 0) {
-        status.innerHTML = '<span class="error">Silakan pilih gambar terlebih dahulu!</span>';
-        return;
-      }
+            <!-- Upload button -->
+            <button class="upload-btn" id="uploadBtn" onclick="startUpload()" disabled>
+                🚀 Upload ke Google Drive
+            </button>
 
-      const file = fileInput.files[0];
-      
-      if (file.size > 10 * 1024 * 1024) {
-        status.innerHTML = '<span class="error">Ukuran file terlalu besar! Maksimal 10MB.</span>';
-        return;
-      }
+            <!-- Progress -->
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="progressBar" style="width: 0%">
+                        <span class="progress-text" id="progressText">0%</span>
+                    </div>
+                </div>
+            </div>
 
-      // === BAGIAN PENTING: Mengambil Tahun dan Bulan dari Date Picker ===
-      const selectedDate = new Date(dateInput.value);
-      const tahun = selectedDate.getFullYear();              // Contoh: 2026
-      const bulanIndex = selectedDate.getMonth();            // 0 = Januari, 11 = Desember
-      const namaBulan = NAMA_BULAN[bulanIndex];              // Contoh: "desember"
-      const subFolderName = `${tahun}/${namaBulan}`;         // Hasil: "2026/desember"
-      // ================================================================
+            <!-- Status -->
+            <div class="status-msg" id="statusMsg"></div>
 
-      uploadBtn.disabled = true;
-      status.innerHTML = `<span class="loading">Sedang mengupload ke Gdrive...</span>`;
+            <!-- Log -->
+            <div class="upload-log" id="uploadLog"></div>
+        </div>
+    </div>
 
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const base64Data = e.target.result.split(',')[1];
-        const mimeType = file.type;
-        const fileName = file.name;
+    <script>
+        // ====== KONFIGURASI ======
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzl3JPd42A6A0Q2CbEuw-S0Jrio62M3WkRn7O2UayNGUo9XjGEXO5jjr41SBNUaKTObDA/exec';
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-        const payload = {
-          fileName: fileName,
-          fileData: base64Data,
-          mimeType: mimeType,
-          subFolderName: subFolderName
-        };
+        // ====== INISIALISASI DROPDOWN ======
+        const NAMA_BULAN = [
+            'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+        ];
 
-        fetch(SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data.result === 'success') {
-            status.innerHTML = `<span class="success">Berhasil diupload ke Gdrive!</span>`;
-            fileInput.value = ''; 
-            // dateInput.value = ''; // Uncomment jika ingin reset tanggal setelah upload
-          } else {
-            status.innerHTML = `<span class="error">Gagal: ${data.error}</span>`;
-          }
-        })
-        .catch(error => {
-          status.innerHTML = `<span class="error">Error jaringan: ${error}</span>`;
-        })
-        .finally(() => {
-          uploadBtn.disabled = false;
+        const tahunSelect = document.getElementById('tahun');
+        const bulanSelect = document.getElementById('bulan');
+        const folderPathEl = document.getElementById('folderPath');
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const filePreview = document.getElementById('filePreview');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const statusMsg = document.getElementById('statusMsg');
+        const uploadLog = document.getElementById('uploadLog');
+
+        let selectedFiles = [];
+
+        // Default: tahun & bulan sekarang
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth(); // 0-indexed
+
+        // Isi dropdown tahun (5 tahun ke belakang + 1 ke depan)
+        for (let y = currentYear - 5; y <= currentYear + 1; y++) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            if (y === currentYear) opt.selected = true;
+            tahunSelect.appendChild(opt);
+        }
+
+        // Isi dropdown bulan (value = 2 digit, text = nama bulan)
+        NAMA_BULAN.forEach((nama, idx) => {
+            const opt = document.createElement('option');
+            opt.value = String(idx + 1).padStart(2, '0'); // "01", "02", ..., "12"
+            opt.textContent = nama;
+            if (idx === currentMonth) opt.selected = true;
+            bulanSelect.appendChild(opt);
         });
-      };
 
-      reader.readAsDataURL(file);
-    }
-  </script>
+        // Update preview folder setiap dropdown berubah
+        function updateFolderPath() {
+            folderPathEl.textContent = `${tahunSelect.value}/${bulanSelect.value}`;
+        }
+        tahunSelect.addEventListener('change', updateFolderPath);
+        bulanSelect.addEventListener('change', updateFolderPath);
+        updateFolderPath();
 
+        // ====== FILE HANDLING ======
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        function handleFiles(files) {
+            const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+
+            // Validasi ukuran
+            const oversized = imageFiles.filter(f => f.size > MAX_FILE_SIZE);
+            if (oversized.length > 0) {
+                showStatus(`❌ ${oversized.length} file melebihi 10MB dan dilewati.`, 'error');
+            }
+
+            const validFiles = imageFiles.filter(f => f.size <= MAX_FILE_SIZE);
+            selectedFiles = [...selectedFiles, ...validFiles];
+            renderPreview();
+        }
+
+        function renderPreview() {
+            filePreview.innerHTML = '';
+            selectedFiles.forEach((file, idx) => {
+                const div = document.createElement('div');
+                div.className = 'file-preview-item';
+
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+
+                const btn = document.createElement('button');
+                btn.className = 'remove-btn';
+                btn.textContent = '✕';
+                btn.onclick = () => {
+                    selectedFiles.splice(idx, 1);
+                    renderPreview();
+                };
+
+                div.appendChild(img);
+                div.appendChild(btn);
+                filePreview.appendChild(div);
+            });
+
+            uploadBtn.disabled = selectedFiles.length === 0;
+        }
+
+        function showStatus(msg, type) {
+            statusMsg.className = `status-msg active ${type}`;
+            statusMsg.innerHTML = msg;
+        }
+
+        // ====== UPLOAD KE GOOGLE DRIVE ======
+        async function startUpload() {
+            if (selectedFiles.length === 0) return;
+
+            const tahun = tahunSelect.value;           // "2026"
+            const bulan = bulanSelect.value;           // "06"
+            const subFolderName = `${tahun}/${bulan}`; // "2026/06"
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '⏳ Mengupload...';
+            progressContainer.classList.add('active');
+            uploadLog.classList.add('active');
+            uploadLog.innerHTML = '';
+            statusMsg.classList.remove('active');
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // Buat log items
+            selectedFiles.forEach((file, idx) => {
+                const logItem = document.createElement('div');
+                logItem.className = 'log-item';
+                logItem.id = `log-${idx}`;
+                logItem.innerHTML = `
+                    <span class="name" title="${file.name}">${file.name}</span>
+                    <span class="status pending">⏳ Menunggu</span>
+                `;
+                uploadLog.appendChild(logItem);
+            });
+
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                const logItem = document.getElementById(`log-${i}`);
+                const statusEl = logItem.querySelector('.status');
+
+                statusEl.textContent = '⏳ Uploading...';
+                statusEl.className = 'status pending';
+
+                try {
+                    await uploadOneFile(file, subFolderName);
+                    statusEl.textContent = '✅ Selesai';
+                    statusEl.className = 'status done';
+                    successCount++;
+                } catch (err) {
+                    console.error(err);
+                    statusEl.textContent = '❌ Gagal';
+                    statusEl.className = 'status fail';
+                    failCount++;
+                }
+
+                // Update progress bar
+                const pct = Math.round(((i + 1) / selectedFiles.length) * 100);
+                progressBar.style.width = pct + '%';
+                progressText.textContent = pct + '%';
+            }
+
+            // Tampilkan hasil
+            if (failCount === 0) {
+                showStatus(`✅ Berhasil upload <strong>${successCount}</strong> foto ke folder <strong>${subFolderName}</strong>`, 'success');
+                // Reset file input, tapi pertahankan pilihan tahun/bulan
+                selectedFiles = [];
+                fileInput.value = '';
+                renderPreview();
+            } else {
+                showStatus(`⚠️ ${successCount} berhasil, ${failCount} gagal upload ke <strong>${subFolderName}</strong>`, 'error');
+            }
+
+            uploadBtn.disabled = selectedFiles.length === 0;
+            uploadBtn.textContent = '🚀 Upload ke Google Drive';
+        }
+
+        // Upload 1 file ke Google Apps Script
+        function uploadOneFile(file, subFolderName) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const base64Data = e.target.result.split(',')[1];
+                    const payload = {
+                        fileName: file.name,
+                        fileData: base64Data,
+                        mimeType: file.type,
+                        subFolderName: subFolderName
+                    };
+
+                    fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.result === 'success') {
+                            resolve(data);
+                        } else {
+                            reject(new Error(data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(err => reject(err));
+                };
+                reader.onerror = () => reject(new Error('Gagal membaca file'));
+                reader.readAsDataURL(file);
+            });
+        }
+    </script>
 </body>
 </html>
